@@ -3,63 +3,109 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-
-use Validator,input,redirect;
-
+use Validator, input, redirect;
+use Illuminate\Support\Facades\DB;
 class EmployeeController extends Controller
+
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
-{
-    $pageTitle = 'Employee List';
+    {
+        //return view('employee.index', ['pageTitle' => $pageTitle]);
 
-    return view('employee.index', ['pageTitle' => $pageTitle]);
-}
+        // RAW SQL QUERY
+        // $employees = DB::select('
+        //     select *, employees.id as employee_id, positions.name as position_name
+        //     from employees
+        //     left join positions on employees.position_id = positions.id
+        // ');
+        // return view('employee.index', [
+        //     'pageTitle' => $pageTitle,
+        //     'employees' => $employees
+        // ]);
+
+        $pageTitle = 'Employee List';
+        $employees = DB::table('employees')
+        ->select('employees.*', 'employees.id as employee_id', 'positions.name as position_name')
+        ->join('positions', 'positions.id', '=', 'employees.position_id')->get();
+        return view('employee.index', [
+            'pageTitle' => $pageTitle,
+            'employees' => $employees
+        ]);
+    }
 
     /**
      * Show the form for creating a new resource.
      */
     public function create()
     {
-        $pageTitle = 'Create Employee';
+        // $pageTitle = 'Create Employee';
+        //  // RAW SQL Query
+        // $positions = DB::select('select * from positions');
 
-        return view('employee.create', compact('pageTitle'));
+        // return view('employee.create', compact('pageTitle', 'positions'));
+        $pageTitle = 'Create Employee';
+        $positions = DB::table('positions')->get();
+        return view('employee.create', compact('pageTitle','positions'));
     }
 
     /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-    {
-        $messages = [
-            'required' => ':Attribute harus diisi.',
-            'email' => 'Isi :attribute dengan format yang benar',
-            'numeric' => 'Isi :attribute dengan angka'
-        ];
+{
+    $messages = [
+        'required' => ':Attribute harus diisi.',
+        'email' => 'Isi :attribute dengan format yang benar',
+        'numeric' => 'Isi :attribute dengan angka'
+    ];
 
-        $validator = Validator::make($request->all(), [
-            'firstName' => 'required',
-            'lastName' => 'required',
-            'email' => 'required|email',
-            'age' => 'required|numeric',
-        ], $messages);
+    $validator = Validator::make($request->all(), [
+        'firstName' => 'required',
+        'lastName' => 'required',
+        'email' => 'required|email',
+        'age' => 'required|numeric',
+    ], $messages);
 
-        if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
-        }
-
-        return $request->all();
-
+    if ($validator->fails()) {
+        return redirect()->back()->withErrors($validator)->withInput();
     }
+
+    // INSERT QUERY
+    DB::table('employees')->insert([
+        'firstname' => $request->firstName,
+        'lastname' => $request->lastName,
+        'email' => $request->email,
+        'age' => $request->age,
+        'position_id' => $request->position,
+    ]);
+
+    return redirect()->route('employees.index');
+}
 
     /**
      * Display the specified resource.
      */
     public function show(string $id)
     {
-        //
+        // RAW SQL QUERY
+            // $employee = collect(DB::select('
+            //     select *, employees.id as employee_id, positions.name as position_name
+            //     from employees
+            //     left join positions on employees.position_id = positions.id
+            //     where employees.id = ?
+            // ', [$id]))->first();
+
+            // return view('employee.show', compact('pageTitle', 'employee'));
+        $pageTitle = 'Employee Detail';
+        $employee = DB::table('employees')
+        ->select('employees.*', 'positions.name as position_name', 'positions.id as position_id')
+        ->leftJoin('positions', 'positions.id', '=', 'employees.position_id')
+        ->where('employees.id', $id)
+        ->first();
+        return view('employee.show', compact('pageTitle', 'employee'));
     }
 
     /**
@@ -67,7 +113,14 @@ class EmployeeController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $pageTitle = 'Edit Employee';
+        $positions = DB::table('positions')->get();
+        $employee = DB::table('employees')
+            ->select('*', 'employees.id as employee_id', 'positions.name as position_name')
+            ->leftJoin('positions', 'employees.position_id', 'positions.id')
+            ->where('employees.id', $id)
+            ->first();
+        return view('employee.edit', compact('pageTitle', 'positions', 'employee'));
     }
 
     /**
@@ -75,7 +128,20 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        {
+            DB::table('employees')
+            ->where('id', $id)
+            ->update([
+            'firstname' => $request->input('firstname'),
+            'lastname' => $request->input('lastname'),
+            'email' => $request->input('email'),
+            'age' => $request->input('age'),
+            'position_id' => $request->input('position')
+            ]);
+            return redirect()->route('employees.index');
+            return view('employee.index', compact('pageTitle', 'employee'));
+            }
+
     }
 
     /**
@@ -83,6 +149,11 @@ class EmployeeController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        // QUERY BUILDER
+        DB::table('employees')
+            ->where('id', $id)
+            ->delete();
+
+        return redirect()->route('employees.index');
     }
 }
